@@ -1,0 +1,68 @@
+#0)Prerequisiti:
+
+sudo apt update
+sudo apt -y install vim bash-completion wget
+sudo apt -y upgrade
+sudo reboot
+
+#1) Installare postgres:
+
+wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+
+echo "deb http://apt.postgresql.org/pub/repos/apt/ `lsb_release -cs`-pgdg main" |sudo tee  /etc/apt/sources.list.d/pgdg.list
+
+sudo apt update
+sudo apt -y install postgresql-12 postgresql-client-12
+sudo systemctl status postgresql.service
+sudo systemctl status postgresql@12-main.service
+sudo systemctl is-enabled postgresql
+#crete group and user
+sudo -u postgres createuser --interactive  (using same name for group and user)
+#Example
+#Enter name of role to add: ubuntu
+#Shall the new role be a superuser? (y/n) y
+#create database
+sudo -u postgres createdb hrecrm
+psql -d hrecrm -c "CREATE EXTENSION pg_trgm;"
+sudo mkdir /data
+sudo chown ubuntu:ubuntu /data
+
+
+#2)Python
+sudo apt-get install --reinstall libpq-dev
+sudo apt install python3-testresources
+sudo apt install python3-pip
+sudo pip install uvicorn
+#clone the repository and install with pip install -r requirements.txt all other libraries
+
+#2.1) USER ADMIN BACKEND;
+insert into backend_user(id,username,password,permissions,email,inserttimestamp,lastupdatetimestamp,firstlogin) values(DEFAULT,'admin',MD5('admin'),'admin','',now(),now(),false);
+
+
+
+#3)Nodejs
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | bash
+source ~/.bashrc
+nvm install v16.13.0
+#yarn
+npm install --global yarn
+
+ 
+#4)Nginx
+ sudo apt install nginx
+ sudo ufw app list
+ sudo ufw allow 'OpenSSH'
+ sudo ufw allow 'Nginx HTTP'
+ sudo ufw enable
+
+
+
+#5)Install service
+sudo cp uvicorn.service  /etc/systemd/system/
+sudo systemctl enable uvicorn
+sudo systemctl start uvicorn
+sudo systemctl status uvicorn
+
+
+
+6)CONFIGURARE I PARAMETRI DI CONNESSIONE NEL FILE src/config.py

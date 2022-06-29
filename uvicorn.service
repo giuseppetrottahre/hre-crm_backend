@@ -1,0 +1,21 @@
+[Unit]
+Description=Uvicorn systemd service.
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/home/developer/hre-crm_backend/env/bin/uvicorn src.main:app --reload --host 127.0.0.1 --log-config ./log.ini  
+User=developer
+Group=developer
+RuntimeDirectory=/var/run/uvicorn
+WorkingDirectory=/home/developer/hre-crm_backend
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+RestartSec=1
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
