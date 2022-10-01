@@ -42,6 +42,8 @@ import openpyxl
 
 from . import config as cfg
 
+from .modules.xlsx2Xml import * 
+from starlette.background import BackgroundTask
 #Create all database object
 Base.metadata.create_all(engine)
 
@@ -817,4 +819,25 @@ async def getXlsExport(request:Request,response:Response,filter:str)-> FileRespo
     workbook.save(filePathXls)
     return FileResponse(f'{filePathXls}')
 
+
+def cleanFiles(filePathList):
+    for f in filePathList:
+        if os.path.exists(f):
+            os.remove(f);
+
+#this method accept a Excel file and then get back an xml file
+@app.post("/v1/backend/final_balance")
+def generateXmlFromExcel(request:Request,filexls: Optional[bytes] = File(None), jsondata:str=Form(...))->FileResponse:
+    if not isValidSession(request):
+          return unhAuthorized()
+    json_data = json.loads(jsondata)
+    if filexls is not None:
+        inputFileName=os.path.join(TempPath,json_data['fileconsuntivazioneexcel'])
+        out_file = open(inputFileName, "wb") # open for [w]riting as [b]inary
+        out_file.write( bytes(filexls))
+        out_file.close()
+        outputFileName=getXml(inputFileName)
+        return  FileResponse(f'{outputFileName}', background=BackgroundTask(cleanFiles, [inputFileName,outputFileName]))       
+    else:
+        return   JSONResponse(content={"message":"Internal Error contact adinistrator" },status_code=250)
 
