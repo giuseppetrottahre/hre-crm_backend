@@ -3,6 +3,11 @@ import math
 import pandas 
 import sys
 from xml.dom import minidom
+import logging
+
+logger = logging.getLogger('xlsx2Xml')
+
+
 
 '''
 R	RIPOSO  -> gestita ad ho non inclusa nella tabella di lookup
@@ -33,7 +38,7 @@ def isSpecialDay(dataFrameCellValue):
     return False
 
 def getXml(excel_input_file_name):
-
+    logger.info("START - %s",excel_input_file_name)
     excel_data_df = pandas.read_excel(excel_input_file_name, sheet_name='Dati',header=None)
     
     df=excel_data_df.dropna(how='all')
@@ -59,7 +64,7 @@ def getXml(excel_input_file_name):
         coddipendenteuff=str(dipendentiDf.iat[row,2])
         dipendente = ET.SubElement(fornitura, 'Dipendente',{"CodAziendaUfficiale":str(CodAziendaUfficiale),"CodDipendenteUfficiale":coddipendenteuff})
         movimenti = ET.SubElement(dipendente, 'Movimenti',{"GenerazioneAutomaticaDaTeorico":"N"})
-        print(coddipendenteuff) 
+        logger.debug("Codice dipendente: "+str(coddipendenteuff)) 
         for j in range(0,31):
             col=5+j
             giorno=headerDf.iat[0,col]
@@ -70,13 +75,13 @@ def getXml(excel_input_file_name):
             if mese <10: 
                 smese='0'+str(mese)
             for k in range(0,3):
-                if  pandas.notna(dipendentiDf.iloc[row+k][col]):
+                if  pandas.notna(dipendentiDf.iloc[row+k][col]) and dipendentiDf.iloc[row+k][col]!=' ':
                     movimento = ET.SubElement(movimenti, 'Movimento')
                     codGiustificativoUfficiale=ET.SubElement(movimento, 'CodGiustificativoUfficiale')
 
                     data=ET.SubElement(movimento, 'Data')
                     data.text=str(anno)+'-'+smese+'-'+sgiorno
-                #    print("row %d , col %d ,value %s",(row+k),col, dipendentiDf.iloc[row+k][col]) 
+                    logger.debug("row: %d, col: %d ,value: %s",(row+k),col,dipendentiDf.iloc[row+k][col]) 
                     if dipendentiDf.iloc[row+k][col]=='R':                         #giornata di riposo
                         codGiustificativoUfficiale.text='01'
                         numore_val='0'
@@ -125,8 +130,12 @@ def getXml(excel_input_file_name):
     xmlstr = minidom.parseString(ET.tostring(fornitura)).toprettyxml(indent="   ")
     with open(excel_input_file_name+'.xml', "w") as f:
         f.write(xmlstr)
+    logger.info("STOP - %s",excel_input_file_name)
     return excel_input_file_name+'.xml' 
     
 if __name__ == "__main__":
-    getXml(sys.argv[1]);
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
 
+    logging.basicConfig(filename='/tmp/import.log', level=logging.DEBUG)
+    getXml(sys.argv[1]);

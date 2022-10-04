@@ -841,3 +841,14 @@ def generateXmlFromExcel(request:Request,filexls: Optional[bytes] = File(None), 
     else:
         return   JSONResponse(content={"message":"Internal Error contact adinistrator" },status_code=250)
 
+
+#this method accept a Excel file and then get back an xml file
+@app.get("/v1/backend/final_balance_log")
+def generateXmlFromExcel(request:Request)->FileResponse:
+    if not isValidSession(request):
+          return unhAuthorized()
+    outputFileName='/tmp/import.log'
+    if os.path.isfile(outputFileName):
+        return  FileResponse(f'{outputFileName}')
+    else:
+        return   JSONResponse(content={"message":"Internal Error or File does not exists" },status_code=250)
