@@ -59,7 +59,7 @@ def getXml(excel_input_file_name):
         coddipendenteuff=str(dipendentiDf.iat[row,2])
         dipendente = ET.SubElement(fornitura, 'Dipendente',{"CodAziendaUfficiale":str(CodAziendaUfficiale),"CodDipendenteUfficiale":coddipendenteuff})
         movimenti = ET.SubElement(dipendente, 'Movimenti',{"GenerazioneAutomaticaDaTeorico":"N"})
-    
+        print(coddipendenteuff) 
         for j in range(0,31):
             col=5+j
             giorno=headerDf.iat[0,col]
@@ -76,7 +76,7 @@ def getXml(excel_input_file_name):
 
                     data=ET.SubElement(movimento, 'Data')
                     data.text=str(anno)+'-'+smese+'-'+sgiorno
-        
+                #    print("row %d , col %d ,value %s",(row+k),col, dipendentiDf.iloc[row+k][col]) 
                     if dipendentiDf.iloc[row+k][col]=='R':                         #giornata di riposo
                         codGiustificativoUfficiale.text='01'
                         numore_val='0'
@@ -96,7 +96,8 @@ def getXml(excel_input_file_name):
                     elif dipendentiDf.iloc[row+k][col]:                        #giornata lavorativo normale
                 #        dipendentiDfWithNotNa=dipendentiDf.iloc[row+k].fillna(0,inplace=True)
                         codGiustificativoUfficiale.text='01'
-                        ore_decimal,ore_int=math.modf(dipendentiDf.iat[0,col]) 
+                #        print(dipendentiDf.iat[row+k,col])
+                        ore_decimal,ore_int=math.modf(dipendentiDf.iat[row+k,col]) 
                         numore_val=str(int(ore_int))
                         numminuti_val=str(int(ore_decimal*60))
                         giornodiriposo_val='N'
