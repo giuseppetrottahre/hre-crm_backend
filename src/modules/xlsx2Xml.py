@@ -7,10 +7,8 @@ import logging
 
 logger = logging.getLogger('xlsx2Xml')
 
-
-
 '''
-R	RIPOSO  -> gestita ad ho non inclusa nella tabella di lookup
+R       RIPOSO  -> gestita ad ho non inclusa nella tabella di lookup
 GIORNATA LAVORATIVA NORMALE -> assieme ad R sono casi base gestiti ad hoc
 
 FE	FERIE
@@ -20,16 +18,31 @@ NT	TURNO NOTTURNO
 RL 	ROL
 AL	ALLATTAMENTO
 PR	PERMESSI RETRIBUITI
+MD	MAGGIORAZIONE LAVORO DOMENICALE
+FS	LAVORO FESTIVO
+SN	STRAORDINARIO NOTTURNO
+MT	MATERNITA' OBBLIGATORIA
+MF	MATERNITA' FACOLTATIVA
+CP	CONGEDO PATERNITA'
+BZ	STRAORDINARIO FORFETTIZZATO
 '''
 
 CAUSALI=['FE'
 ,'MA'
 ,'ST'
 ,'NT'
-,'RL' 
+,'RL'
 ,'AL'
 ,'PR'
+,'MD'
+,'FS'
+,'SN'
+,'MT'
+,'MF'
+,'CP'
+,'BZ'
 ];
+
 
 def isSpecialDay(dataFrameCellValue):
     for causale in CAUSALI:
