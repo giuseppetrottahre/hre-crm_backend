@@ -1,6 +1,7 @@
 import os,shutil
 from typing import List, Type
 from fastapi import FastAPI, File,Form,UploadFile,Request, Depends, Response,HTTPException
+from sqlalchemy import func
 
 from typing import Optional
 from fastapi.encoders import jsonable_encoder
@@ -12,6 +13,8 @@ from .FastApiModel.cliente_schema import ClienteBase,ClienteData
 from .FastApiModel.users_schema import UsersBase,UsersData
 from .FastApiModel.events_schema import EventsBase,EventsData,EventsUsers
 from .FastApiModel.accounts_schema import LoginBase,AccountsBase,AccountsData
+from .FastApiModel.timesheet_schema import TimesheetData
+from .FastApiModel.sentiment_schema import SentimentData
 
 from .SqlOrmModel.base import Base,engine
 from .SqlOrmModel.fornitoreController import FornitoreController
@@ -22,6 +25,10 @@ from .SqlOrmModel.statoController  import StatoController
 from .SqlOrmModel.backendController  import BackendController
 from .SqlOrmModel.eventController import EventController
 from .SqlOrmModel.events_usersController import EventUserController
+from .SqlOrmModel.timesheetController import TimesheetController 
+from .SqlOrmModel.sentimentController import SentimentController 
+from .SqlOrmModel.user_timesheet_detection import UserTimesheet
+from .SqlOrmModel.user_sentiment_detection import UserSentiment
 import json,uuid,hashlib
 
 import typing as t
@@ -43,6 +50,7 @@ import openpyxl
 from . import config as cfg
 
 from .modules.xlsx2Xml import * 
+from .modules.recognition import *
 from starlette.background import BackgroundTask
 #Create all database object
 Base.metadata.create_all(engine)
@@ -71,6 +79,22 @@ ClientiPath=BasePath+"/clienti/"
 TempPath="/tmp"
 
 #Metodi accessori per geerare il body delle email da inviare in fase di registrazione
+
+def mlSetup():
+    users=UserController.getUsersInfoForML()
+    setUpImages(users)
+    
+
+#Initialize ML info on startup
+mlSetup()
+
+
+#refresh lod on ml info
+@app.get("/v1/backend/ml/refresh")
+def mlRefresh():
+    mlSetup()
+    return {"message": "DONE"}
+
 
 #Clienti
 def getClientDescription(id:str,client:ClienteBase):
@@ -852,3 +876,182 @@ def generateXmlFromExcel(request:Request)->FileResponse:
         return  FileResponse(f'{outputFileName}')
     else:
         return   JSONResponse(content={"message":"Internal Error or File does not exists" },status_code=250)
+
+
+
+
+#endpoint for Photo Upload
+@app.post("/v1/backend/tnotification")
+def timesheet_notification(fileImg:UploadFile=File(...)):
+    logger.info("[timesheet_notification] [filename:"+fileImg.filename+"]")
+    message=""
+    try:
+        contents=fileImg.file.read()
+        fileName=TempPath+"/"+fileImg.filename
+        with open(fileName,'wb') as f:
+            f.write(contents)
+    except Exception:
+        logger.error("[timesheet_notification] [filename:"+fileImg.filename+"] [UPLOAD FAILED]")
+        return {"message":"Error uploading file"}
+    finally:
+        fileImg.file.close()
+    identity_matched=analyze(fileName) #analyze(fileName,cfg.csvInfoPath)
+    if identity_matched[0] != "Unknown":
+        user_id=UserController.checkCf(identity_matched[2])
+        if user_id:
+            timesheet_id=TimesheetController.getSingleRowOpenForUserId(user_id)
+            if timesheet_id is None:
+                user=UserController.getUser(user_id)
+                timesheet_row=UserTimesheet(user_id)
+                timesheet_row.nome=user.nome
+                timesheet_row.secondonome=user.secondonome
+                timesheet_row.cognome=user.cognome
+                TimesheetController.insert(timesheet_row)
+                message={"identity":identity_matched[0],"status":"IN"}
+            else:
+                TimesheetController.closeTimeSheet(timesheet_id)
+                message={"identity":identity_matched[0],"status":"OUT"}
+        else:
+            message= {"error":"User nont found for CF:"+identity_matched[2]}
+    else:
+        message={"identity":"UNKNOW"}
+    logger.info("[timesheet_notification] [filename:"+fileImg.filename+"]["+str(message)+"]")
+    os.remove(fileName)
+    return message
+
+#endpoint for Photo Upload
+@app.post("/v1/backend/snotification")
+def sentiment_notification(fileImg:UploadFile=File(...)):
+    logger.info("[sentiment_notification] [filename:"+fileImg.filename+"]")
+    message=""
+    try:
+        contents=fileImg.file.read()
+        fileName=TempPath+"/"+fileImg.filename
+        with open(fileName,'wb') as f:
+            f.write(contents)
+    except Exception:
+        logger.error("[sentiment_notification] [filename:"+fileImg.filename+"] [UPLOAD FAILED]")
+        return {"message":"Error uploading file"}
+    finally:
+        fileImg.file.close()
+    identity_matched=analyze(fileName) #analyze(fileName,cfg.csvInfoPath)
+    if identity_matched[0] != "Unknown":
+        user_id=UserController.checkCf(identity_matched[2])
+        if user_id:
+                user=UserController.getUser(user_id)
+                sentiment_row=UserSentiment(user_id)
+                sentiment_row.nome=user.nome
+                sentiment_row.secondonome=user.secondonome
+                sentiment_row.cognome=user.cognome
+                sentiment_analysis=sentiment_detection(fileName)
+                sentiment=sentiment_analysis[0]['dominant_emotion']
+                sentiment_row.sentiment_detected=sentiment
+                SentimentController.insert(sentiment_row)
+                message={"identity":identity_matched[0],"sentiment":sentiment}
+        else:
+            message={"error":"User nont found for CF:"+identity_matched[2]}
+    else:
+        message={"identity":"UNKOWN"}
+    logger.info("[sentiment_notification] [filename:"+fileImg.filename+"]["+str(message)+"]")
+    os.remove(fileName)
+    return message
+
+#
+#mask detection
+@app.post("/v1/backend/maskdetection")
+def mask_notification(fileImg:UploadFile=File(...)):
+    logger.info("[mask_notification] [filename:"+fileImg.filename+"]")
+    try:
+        contents=fileImg.file.read()
+        fileName=TempPath+"/"+fileImg.filename
+        with open(fileName,'wb') as f:
+              f.write(contents)
+    except Exception:
+         logger.error("[mask_notification] [filename:"+fileImg.filename+"] [UPLOAD FAILED]")
+         return {"message":"Error uploading file"}
+    finally:
+        fileImg.file.close()
+    
+    m_detected= mask_detection(fileName)
+    logger.info("[mask_notification] [filename:"+fileImg.filename+"][MASK:"+str(m_detected)+"]")
+    os.remove(fileName)
+    return {"Mask":m_detected}
+
+
+
+####TIMESHEET####
+@app.get("/v1/backend/timesheet",
+    response_model=t.List[TimesheetData],
+    response_model_exclude_none=False,)
+def get_crm_timesheet(response:Response,filter:str,range:str,sort:str,request:Request):
+    if not isValidSession(request):
+        return unhAuthorized()
+
+    filters=json.loads(filter)
+    timesheet,totalCount=TimesheetController.getList(filters,range,sort)
+    response.headers['Access-Control-Expose-Headers'] = 'Content-Range'
+    response.headers["Content-Range"] = f"posts 0-9/{totalCount}"
+    return timesheet
+
+
+#richiesa singolo row
+@app.get("/v1/backend/timesheet/{timesheet_id}",response_model=TimesheetData, response_model_exclude_none=True)
+def get_crm_timesheet_row( request: Request,timesheet_id:str):
+    if not isValidSession(request):
+         return unhAuthorized()
+    return TimesheetController.getSingleRow(timesheet_id)
+
+@app.put("/v1/backend/timesheet/{timesheet_id}",response_model=TimesheetData, response_model_exclude_none=True)
+def update_crm_timesheet(request:Request,timesheet_id:str,jsondata:str=Form(...)):
+    if not isValidSession(request):
+         return unhAuthorized()
+    timesheet_row=TimesheetData.parse_raw(jsondata)
+    return TimesheetController.updateSingleRow(timesheet_id,timesheet_row)
+
+@app.delete("/v1/backend/timesheet/{timesheet_id}")
+def delete_crm_timesheet(response:Response,timesheet_id:str):
+    if not isValidSession(request):
+         return unhAuthorized()
+    TimesheetController.remove_timesheet(timesheet_id)
+    return JSONResponse(content={"message":"SUCCESS: Riga eliminata"},status_code=200)
+
+###SENTIMENT####
+@app.get("/v1/backend/sentiment",
+    response_model=t.List[SentimentData],
+    response_model_exclude_none=False,)
+def get_crm_sentiment(response:Response,filter:str,range:str,sort:str,request:Request):
+    if not isValidSession(request):
+        return unhAuthorized()
+
+    filters=json.loads(filter)
+    sentiment,totalCount=SentimentController.getList(filters,range,sort)
+    response.headers['Access-Control-Expose-Headers'] = 'Content-Range'
+    response.headers["Content-Range"] = f"posts 0-9/{totalCount}"
+    return sentiment
+
+
+
+#richiesa singolo row
+@app.get("/v1/backend/sentiment/{sentiment_id}",response_model=SentimentData, response_model_exclude_none=True)
+def get_crm_timesheet_row( request: Request,sentiment_id:str):
+    if not isValidSession(request):
+         return unhAuthorized()
+    return SentimentController.getSingleRow(sentiment_id)
+
+
+@app.put("/v1/backend/sentiment/{sentiment_id}",response_model=SentimentData, response_model_exclude_none=True)
+def update_crm_sentiment(request:Request,sentiment_id:str,jsondata:str=Form(...)):
+    if not isValidSession(request):
+         return unhAuthorized()
+    sentiment_row=SentimentData.parse_raw(jsondata)
+    return SentimentController.updateSingleRow(sentiment_id,sentiment_row)
+
+
+@app.delete("/v1/backend/sentiment/{sentiment_id}")
+def delete_crm_sentiment(response:Response,sentiment_id:str):
+    if not isValidSession(request):
+         return unhAuthorized()
+    TimesheetController.remove_sentiment(sentiment_id)
+    return JSONResponse(content={"message":"SUCCESS: Riga eliminata"},status_code=200)
+    
+

@@ -3,11 +3,23 @@ from .base import Session, engine, Base
 from .events_users import Event,User
 from .comune import Comune
 from .user_delete_request import UserDeleteRequest
+from .user_sentiment_detection import UserSentiment
+from .user_timesheet_detection import UserTimesheet
 from.events_users import EventsUsers
 from sqlalchemy import asc, desc,func,not_,or_,text,and_,update, text,extract
 import uuid
 
 class UserController:
+
+    @staticmethod
+    def getUsersInfoForML():
+        session = Session()
+        users = session.execute("select concat(nome,' ',secondonome,' ',cognome) as identity,codicefiscale,concat('/data/utenti/',codicefiscale,'/',split_part(filenameinputprofiloimg,'/',6)) as imageprofile from crm_user_info").fetchall()
+        session.commit()
+        session.close()
+        return list(users)
+
+
 
     @staticmethod
     def insert(JsonUser):
