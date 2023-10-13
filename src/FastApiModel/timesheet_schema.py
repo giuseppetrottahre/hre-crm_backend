@@ -6,7 +6,7 @@ class TimesheetData(BaseModel):
     id:UUID = Field(default_factory=uuid4)
     id_user:UUID
     nome:str
-    secondonome:str
+    secondonome:str=None
     cognome:str
     starttimestamp:datetime
     stoptimestamp:datetime=None

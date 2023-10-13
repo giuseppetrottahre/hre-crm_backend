@@ -898,8 +898,10 @@ def timesheet_notification(fileImg:UploadFile=File(...)):
     identity_matched=analyze(fileName) #analyze(fileName,cfg.csvInfoPath)
     if identity_matched[0] != "Unknown":
         user_id=UserController.checkCf(identity_matched[2])
+        logger.info('prova:'+str(user_id))
         if user_id:
             timesheet_id=TimesheetController.getSingleRowOpenForUserId(user_id)
+            logger.info('provat:'+str(timesheet_id))
             if timesheet_id is None:
                 user=UserController.getUser(user_id)
                 timesheet_row=UserTimesheet(user_id)
@@ -953,7 +955,7 @@ def sentiment_notification(fileImg:UploadFile=File(...)):
     else:
         message={"identity":"UNKOWN"}
     logger.info("[sentiment_notification] [filename:"+fileImg.filename+"]["+str(message)+"]")
-    os.remove(fileName)
+    #os.remove(fileName)
     return message
 
 #
@@ -1009,7 +1011,7 @@ def update_crm_timesheet(request:Request,timesheet_id:str,jsondata:str=Form(...)
     return TimesheetController.updateSingleRow(timesheet_id,timesheet_row)
 
 @app.delete("/v1/backend/timesheet/{timesheet_id}")
-def delete_crm_timesheet(response:Response,timesheet_id:str):
+def delete_crm_timesheet(request:Request,timesheet_id:str):
     if not isValidSession(request):
          return unhAuthorized()
     TimesheetController.remove_timesheet(timesheet_id)
@@ -1048,10 +1050,8 @@ def update_crm_sentiment(request:Request,sentiment_id:str,jsondata:str=Form(...)
 
 
 @app.delete("/v1/backend/sentiment/{sentiment_id}")
-def delete_crm_sentiment(response:Response,sentiment_id:str):
+def delete_crm_sentiment(request:Request,sentiment_id:str):
     if not isValidSession(request):
          return unhAuthorized()
     TimesheetController.remove_sentiment(sentiment_id)
     return JSONResponse(content={"message":"SUCCESS: Riga eliminata"},status_code=200)
-    
-
