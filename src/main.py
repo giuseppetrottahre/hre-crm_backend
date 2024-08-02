@@ -896,6 +896,7 @@ def timesheet_notification(fileImg:UploadFile=File(...)):
         return {"message":"Error uploading file"}
     finally:
         fileImg.file.close()
+        exifOrientation(fileName)
     identity_matched=analyze(fileName) #analyze(fileName,cfg.csvInfoPath)
     if identity_matched[0] != "Unknown":
         user_id=UserController.checkCf(identity_matched[2])
