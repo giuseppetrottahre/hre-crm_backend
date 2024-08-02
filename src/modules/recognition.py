@@ -13,8 +13,28 @@ import config as cfg
 from pprint import pprint
 import cv2
 from keras.models import load_model
+from keras.preprocessing.image import img_to_array
+from keras.applications.mobilenet_v2 import preprocess_input
+
+from PIL import Image
 
 logger = logging.getLogger('recognition')
+
+
+def exifOrientation(filename):
+    image = Image.open(filename)
+    exif = image._getexif()
+    ORIENTATION = 274
+    if exif is not None and ORIENTATION in exif:
+        orientation = exif[ORIENTATION]
+        method = {2: Image.FLIP_LEFT_RIGHT, 4: Image.FLIP_TOP_BOTTOM, 8: Image.ROTATE_90, 3: Image.ROTATE_180, 6: Image.ROTATE_270, 5: Image.TRANSPOSE, 7: Image.TRANSVERSE}
+        if orientation in method:
+            logger.debug("Exif Orientation detected:"+str(orientation))
+            image = image.transpose(method[orientation])
+            image.save(filename)
+    image.close()
+
+
 
 
 known_face_encodings_names = ([],[],[]) #imaged encoded to use for recognition, name of the  people in image, CF of the people
@@ -83,7 +103,7 @@ def analyze(fileImageToMatch, pathFileDataset=None,debug=False,maximumdistance=0
         #face_distance contains ecuclidean distance betweeen unknow image and images of dataset, lesser valuue best match
         face_distances = face_recognition.face_distance(known_face_encodings_names[0], unknow_face_encoded)
         if debug:
-            logger.debug("maximum distance to have a match:",maximumdistance)
+            logger.debug("maximum distance to have a match:",str(maximumdistance))
             logger.debug(matches)
             logger.debug(face_distances)
         best_match_index = np.argmin(face_distances)
@@ -106,11 +126,11 @@ def sentiment_detection(fileImageToMatch):
 
 #size: resaize factor
 #pre traines tensorflow model
-mask_model=load_model(current+"/models/mask_model.hdf5")
+mask_model=load_model(current+"/models/mask_recog.h5")
 #opencv classifier to detect face
 classifier = cv2.CascadeClassifier(current+'/models/haarcascade_frontalface_default.xml')
 
-def mask_detection(fileImageToMatch,size=4):
+def mask_detection(fileImageToMatch,size=1):
     im = cv2.imread(fileImageToMatch)
      # Resize the image to speed up detection
     mini = cv2.resize(im, (im.shape[1] // size, im.shape[0] // size))
@@ -119,22 +139,21 @@ def mask_detection(fileImageToMatch,size=4):
     faces = classifier.detectMultiScale(mini)
     logger.debug("Check for face ")
     # Draw rectangles around each face
-    for f in faces:
-        logger.debug("Face found")
-        (x, y, w, h) = [v * size for v in f] #Scale the shapesize backup
-        #Save just the rectangle faces in SubRecFaces
-        face_img = im[y:y+h, x:x+w]
-        resized=cv2.resize(face_img,(150,150))
-        normalized=resized/255.0
-        reshaped=np.reshape(normalized,(1,150,150,3))
-        reshaped = np.vstack([reshaped])
-        result=mask_model.predict(reshaped)
-        print("INSIDE:"+str(result))
-        label=np.argmax(result,axis=1)[0]
-        if label>0:
-            return True #WITH MASK
-        else:
-            return False #WITHOUT MASK
+    for (x, y, w, h) in faces:
+      face_frame = im[y:y+h,x:x+w]
+      face_frame = cv2.cvtColor(face_frame, cv2.COLOR_BGR2RGB)
+      face_frame = cv2.resize(face_frame, (224, 224))
+      face_frame = img_to_array(face_frame)
+      face_frame = np.expand_dims(face_frame, axis=0)
+      face_frame =  preprocess_input(face_frame)
+      pred= mask_model.predict(face_frame)
+      (mask, withoutMask) = pred[0]
+      if mask > withoutMask :
+         logger.debug("Mask Detected")
+         return True
+      else:
+         logger.debug("No Mask Detected")
+         return False
 
 
 if __name__ == "__main__":

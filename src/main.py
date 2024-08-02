@@ -53,6 +53,7 @@ from .modules.xlsx2Xml import *
 from .modules.recognition import *
 from starlette.background import BackgroundTask
 #Create all database object
+
 Base.metadata.create_all(engine)
 
 app = FastAPI(debug=True)
@@ -936,6 +937,7 @@ def sentiment_notification(fileImg:UploadFile=File(...)):
         return {"message":"Error uploading file"}
     finally:
         fileImg.file.close()
+        exifOrientation(fileName)
     identity_matched=analyze(fileName) #analyze(fileName,cfg.csvInfoPath)
     if identity_matched[0] != "Unknown":
         user_id=UserController.checkCf(identity_matched[2])
@@ -955,7 +957,7 @@ def sentiment_notification(fileImg:UploadFile=File(...)):
     else:
         message={"identity":"UNKOWN"}
     logger.info("[sentiment_notification] [filename:"+fileImg.filename+"]["+str(message)+"]")
-    #os.remove(fileName)
+    os.remove(fileName)
     return message
 
 #

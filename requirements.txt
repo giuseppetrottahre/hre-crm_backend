@@ -20,7 +20,7 @@ flatbuffers==23.3.3
 gast==0.4.0
 gdown==4.6.4
 google-auth==2.16.2
-google-auth-oauthlib==0.4.6
+google-auth-oauthlib==1.0.0
 google-pasta==0.2.0
 greenlet==1.1.2
 grpcio==1.51.3
@@ -32,7 +32,7 @@ idna==3.3
 importlib-metadata==6.0.0
 itsdangerous==2.1.2
 Jinja2==3.1.2
-keras==2.11.0
+keras==2.13.1
 libclang==15.0.6.1
 Markdown==3.4.1
 MarkupSafe==2.1.2
@@ -46,7 +46,8 @@ packaging==23.0
 pandas==1.5.3
 Pillow==9.4.0
 pip-autoremove==0.10.0
-protobuf==3.19.6
+pkg_resources==0.0.0
+protobuf==4.25.3
 psycopg2==2.9.1
 pyasn1==0.4.8
 pyasn1-modules==0.2.8
@@ -66,11 +67,11 @@ sniffio==1.2.0
 soupsieve==2.4
 SQLAlchemy==1.4.26
 starlette==0.16.0
-tensorboard==2.11.2
-tensorboard-data-server==0.6.1
+tensorboard==2.13.0
+tensorboard-data-server==0.7.2
 tensorboard-plugin-wit==1.8.1
-tensorflow==2.11.0
-tensorflow-estimator==2.11.0
+tensorflow==2.13.1
+tensorflow-estimator==2.13.0
 tensorflow-io-gcs-filesystem==0.31.0
 termcolor==2.2.0
 tqdm==4.65.0
